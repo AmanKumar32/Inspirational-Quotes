@@ -1,33 +1,77 @@
 package com.felight.inspirational_quotes;
 
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
 import android.os.Bundle;
 import android.app.Activity;
+import android.content.Context;
 import android.view.View;
 import android.widget.TextView;
 import android.widget.Toast;
 
-public class QuotesActivity extends Activity {
+public class QuotesActivity extends Activity implements SensorEventListener {
 
 	List<String> qoute;
 	TextView tvquotes;
 	int location = 0;
 	TextView tvnumbering;
 	static int count = 1;
+	SensorManager sensormanager;
+	Sensor shake;
+	Iterator iterator;
+
+	private long now = 0;
+	private long timeDiff = 0;
+	private long lastUpdate = 0;
+	private long lastShake = 0;
+
+	private float x = 0;
+	private float y = 0;
+	private float z = 0;
+	private float lastX = 0;
+	private float lastY = 0;
+	private float lastZ = 0;
+	private float force = 0;
 
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 		setContentView(R.layout.activity_quotes);
+		initializeViews();
+		initializequotes();
+
+		iterator = qoute.iterator();
+		sensormanager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
+		shake = sensormanager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+	}
+
+	@Override
+	protected void onResume() {
+		super.onResume();
+		sensormanager.registerListener(this, shake,
+				SensorManager.SENSOR_DELAY_UI);
+
+	}
+
+	@Override
+	protected void onPause() {
+		super.onPause();
+		sensormanager.unregisterListener(this, shake);
+	}
+
+	public void initializeViews() {
 		tvquotes = (TextView) findViewById(R.id.tvquotedisplay);
 		tvnumbering = (TextView) findViewById(R.id.tvnumbering);
 		tvnumbering.setText(count + "/25");
-		quotes();
 	}
 
-	public void quotes() {
+	public void initializequotes() {
 		qoute = new ArrayList<String>();
 		qoute.add("If you want to achieve greatness stop asking for permission.");
 		qoute.add("Things work out best for those who make the best of how things work out.");
@@ -93,6 +137,62 @@ public class QuotesActivity extends Activity {
 			tvquotes.setText(qoute.get(location));
 
 		}
+
+	}
+
+	@Override
+	public void onSensorChanged(SensorEvent event) {
+		now = event.timestamp;
+		x = event.values[0];
+		y = event.values[1];
+		z = event.values[2];
+
+		if (lastUpdate == 0) {
+			lastUpdate = now;
+			lastShake = now;
+			lastX = x;
+			lastY = y;
+			lastZ = z;
+			Toast.makeText(this, "No Motion Detected", Toast.LENGTH_SHORT)
+					.show();
+		} else {
+			timeDiff = now - lastUpdate;
+			if (timeDiff > 0) {
+				force = Math.abs(x + y + z - lastX - lastY - lastZ);
+				float threshold = 2.5f;
+				if (Float.compare(force, threshold) > 0) {
+					long interval = 3000;
+					if (now - lastShake >= interval) {
+						//Toast.makeText(this, "Shake On", 1000).show();
+						changeQuote();
+					} else {
+						//Toast.makeText(this, "Shake Off", 1000).show();
+					}
+					lastShake = now;
+				}
+				lastX = x;
+				lastY = y;
+				lastZ = z;
+				lastUpdate = now;
+			} else {
+				//Toast.makeText(this, "Shake Off", Toast.LENGTH_SHORT).show();
+			}
+		}
+
+	}
+
+	private void changeQuote() {
+		if (iterator.hasNext()) {
+			tvquotes.setText(iterator.next().toString());
+		} else {
+			iterator = qoute.iterator();
+		}
+
+	}
+
+	@Override
+	public void onAccuracyChanged(Sensor sensor, int accuracy) {
+		// TODO Auto-generated method stub
 
 	}
 
